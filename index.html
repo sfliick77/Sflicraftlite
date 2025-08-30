@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sflickcraft - Minecraft em HTML</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            overflow: hidden;
+            background-color: #1a1a1a;
+        }
+        
+        /* Tela de carregamento */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a2a6c, #3a6186);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 1s ease-out;
+        }
+        
+        .loading-title {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 3px 3px 0 #000, 6px 6px 0 #3a6186;
+            margin-bottom: 1.5rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+        
+        .loading-subtitle {
+            color: #fff;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .loading-bar-container {
+            width: 350px;
+            height: 25px;
+            background-color: #2c3e50;
+            border-radius: 5px;
+            border: 2px solid #1a2a6c;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            transition: width 0.5s ease;
+        }
+        
+        .loading-tip {
+            color: #ecf0f1;
+            font-size: 1rem;
+            max-width: 500px;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        .pixel-art {
+            display: flex;
+            margin-bottom: 1.5rem;
+        }
+        
+        .pixel {
+            width: 16px;
+            height: 16px;
+            margin: 2px;
+        }
+        
+        /* Jogo */
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        
+        #ui {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+        
+        .block-type {
+            width: 36px;
+            height: 36px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 10px;
+            border-radius: 3px;
+        }
+        
+        .block-type.selected {
+            border-color: white;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            pointer-events: none;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 12px;
+            border-radius: 5px;
+            max-width: 280px;
+            z-index: 10;
+            font-size: 14px;
+        }
+        
+        .performance-warning {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(200, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Tela de carregamento -->
+    <div id="loading-screen">
+        <h1 class="loading-title">Sflickcraft</h1>
+        <p class="loading-subtitle">Otimizado para TV - Carregando...</p>
+        
+        <div class="pixel-art">
+            <div class="pixel" style="background-color: #8B4513;"></div>
+            <div class="pixel" style="background-color: #228B22;"></div>
+            <div class="pixel" style="background-color: #1E90FF;"></div>
+            <div class="pixel" style="background-color: #FFD700;"></div>
+            <div class="pixel" style="background-color: #808080;"></div>
+        </div>
+        
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="loading-bar"></div>
+        </div>
+        
+        <p class="loading-tip">Tecla Enter também coloca blocos | Use WASD para mover e Espaço para pular</p>
+    </div>
+
+    <!-- Jogo -->
+    <div id="game-container">
+        <div id="crosshair">+</div>
+        <div id="ui">
+            <div class="block-type selected" style="background-color: #8B4513;" data-type="terra">T</div>
+            <div class="block-type" style="background-color: #808080;" data-type="pedra">P</div>
+            <div class="block-type" style="background-color: #228B22;" data-type="grama">G</div>
+            <div class="block-type" style="background-color: #1E90FF;" data-type="agua">A</div>
+            <div class="block-type" style="background-color: #964B00;" data-type="madeira">M</div>
+            <div class="block-type" style="background-color: #007700;" data-type="folha">F</div>
+        </div>
+        <div id="instructions">
+            <h2>Como Jogar</h2>
+            <p>WASD: Mover</p>
+            <p>Mouse: Olhar ao redor</p>
+            <p>Clique Esquerdo: Remover bloco</p>
+            <p>Clique Direito ou Enter: Colocar bloco</p>
+            <p>Espaço: Pular</p>
+            <p>Escape: Libertar mouse</p>
+            <p>Teclas 1-6: Selecionar bloco</p>
+        </div>
+        <div class="performance-warning" id="performance-warning">
+            Desempenho baixo! Reduzindo qualidade...
+        </div>
+    </div>
+
+    <!-- Three.js e bibliotecas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.min.js"></script>
+
+    <script>
+        // Variáveis de performance
+        let lowPerformanceMode = false;
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        
+        // Simular carregamento
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingScreen = document.getElementById('loading-screen');
+            const gameContainer = document.getElementById('game-container');
+            
+            let progress = 0;
+            const loadingInterval = setInterval(() => {
+                progress += Math.random() * 8;
+                if (progress > 100) progress = 100;
+                loadingBar.style.width = progress + '%';
+                
+                if (progress === 100) {
+                    clearInterval(loadingInterval);
+                    setTimeout(() => {
+                        loadingScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                            gameContainer.style.display = 'block';
+                            initGame();
+                        }, 1000);
+                    }, 500);
+                }
+            }, 200);
+        });
+
+        function initGame() {
+            // Variáveis principais do jogo
+            let camera, scene, renderer, controls;
+            let raycaster;
+            let objects = [];
+            let blockType = 'terra';
+            const clock = new THREE.Clock();
+            let moveForward = false;
+            let moveBackward = false;
+            let moveLeft = false;
+            let moveRight = false;
+            let canJump = false;
+            let prevTime = performance.now();
+            let velocity = new THREE.Vector3();
+            let direction = new THREE.Vector3();
+
+            // Mundo de blocos (menor para melhor performance)
+            const worldSize = 24;
+            const worldHeight = 12;
+            let world = [];
+
+            // Inicializar o mundo
+            function initWorld() {
+                // Inicializar matriz do mundo
+                for (let x = 0; x < worldSize; x++) {
+                    world[x] = [];
+                    for (let y = 0; y < worldHeight; y++) {
+                        world[x][y] = [];
+                        for (let z = 0; z < worldSize; z++) {
+                            world[x][y][z] = null;
+                        }
+                    }
+                }
+                
+                // Gerar terreno básico
+                for (let x = 0; x < worldSize; x++) {
+                    for (let z = 0; z < worldSize; z++) {
+                        // Camada de pedra no fundo
+                        world[x][0][z] = 'pedra';
+                        
+                        // 3 camadas de terra
+                        for (let y = 1; y <= 3; y++) {
+                            world[x][y][z] = 'terra';
+                        }
+                        
+                        // Camada de grama no topo
+                        world[x][4][z] = 'grama';
+                        
+                        // Adicionar algumas árvores aleatoriamente (menos árvores para performance)
+                        if (Math.random() < 0.02 && x > 3 && x < worldSize-3 && z > 3 && z < worldSize-3) {
+                            createTree(x, 5, z);
+                        }
+                    }
+                }
+                
+                // Adicionar água em algumas áreas (menos água para performance)
+                for (let x = 8; x < 16; x++) {
+                    for (let z = 8; z < 16; z++) {
+                        if (world[x][4][z] === 'grama' && Math.random() < 0.5) {
+                            world[x][4][z] = 'agua';
+                        }
+                    }
+                }
+            }
+            
+            // Criar uma árvore simples
+            function createTree(x, y, z) {
+                // Tronco (3 blocos de altura)
+                world[x][y][z] = 'madeira';
+                world[x][y+1][z] = 'madeira';
+                world[x][y+2][z] = 'madeira';
+                
+                // Folhas (mais simples para performance)
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        if (i === 0 && j === 0) {
+                            world[x+i][y+3][z+j] = 'folha';
+                            world[x+i][y+4][z+j] = 'folha';
+                        } else if (Math.random() < 0.7) { // Menos folhas para performance
+                            world[x+i][y+3][z+j] = 'folha';
+                        }
+                    }
+                }
+            }
+
+            // Inicializar a cena do jogo
+            function init() {
+                // Configurar cena, câmera e renderizador
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x87CEEB);
+                scene.fog = new THREE.Fog(0x87CEEB, 15, 30); // Menos nevoeiro para performance
+
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50); // Menor distância de renderização
+
+                renderer = new THREE.WebGLRenderer({ 
+                    antialias: false, // Desativar antialiasing para performance
+                    powerPreference: "low-power" // Modo de baixo consumo
+                });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = false; // Desativar sombras para performance
+                document.getElementById('game-container').appendChild(renderer.domElement);
+
+                // Configurar iluminação (mais simples para performance)
+                const ambientLight = new THREE.AmbientLight(0x606060);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6); // Luz menos intensa
+                directionalLight.position.set(1, 1, 0.5).normalize();
+                scene.add(directionalLight);
+
+                // Configurar controles de ponteiro
+                controls = new THREE.PointerLockControls(camera, document.body);
+                
+                // Adicionar evento de clique para bloquear o ponteiro
+                document.addEventListener('click', () => {
+                    if (!controls.isLocked) {
+                        controls.lock();
+                    }
+                });
+
+                controls.addEventListener('lock', () => {
+                    document.getElementById('instructions').style.display = 'none';
+                });
+
+                controls.addEventListener('unlock', () => {
+                    document.getElementById('instructions').style.display = 'block';
+                });
+
+                // Adicionar controles de teclado
+                document.addEventListener('keydown', onKeyDown);
+                document.addEventListener('keyup', onKeyUp);
+                
+                // Adicionar eventos de clique do mouse
+                document.addEventListener('mousedown', onMouseClick);
+                
+                // Adicionar eventos de seleção de tipo de bloco
+                document.querySelectorAll('.block-type').forEach(el => {
+                    el.addEventListener('click', () => {
+                        document.querySelectorAll('.block-type').forEach(e => e.classList.remove('selected'));
+                        el.classList.add('selected');
+                        blockType = el.getAttribute('data-type');
+                    });
+                });
+
+                // Configurar redimensionamento da janela
+                window.addEventListener('resize', onWindowResize);
+
+                // Inicializar mundo e criar geometria
+                initWorld();
+                generateWorldGeometry();
+                
+                // Adicionar controles à cena
+                scene.add(controls.getObject());
+                
+                // Posicionar a câmera
+                controls.getObject().position.set(worldSize/2, 8, worldSize/2);
+
+                // Iniciar animação
+                animate();
+            }
+            
+            // Manipular teclas pressionadas
+            function onKeyDown(event) {
+                switch (event.code) {
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        moveForward = true;
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        moveLeft = true;
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        moveBackward = true;
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        moveRight = true;
+                        break;
+                    case 'Space':
+                        if (canJump === true) velocity.y += 300; // Pulo menos alto para controle mais fácil
+                        canJump = false;
+                        break;
+                    case 'Enter':
+                        placeBlock();
+                        break;
+                    case 'Digit1':
+                        selectBlock(0);
+                        break;
+                    case 'Digit2':
+                        selectBlock(1);
+                        break;
+                    case 'Digit3':
+                        selectBlock(2);
+                        break;
+                    case 'Digit4':
+                        selectBlock(3);
+                        break;
+                    case 'Digit5':
+                        selectBlock(4);
+                        break;
+                    case 'Digit6':
+                        selectBlock(5);
+                        break;
+                }
+            }
+            
+            // Selecionar bloco pelo número
+            function selectBlock(index) {
+                const blocks = document.querySelectorAll('.block-type');
+                if (index < blocks.length) {
+                    blocks.forEach(e => e.classList.remove('selected'));
+                    blocks[index].classList.add('selected');
+                    blockType = blocks[index].getAttribute('data-type');
+                }
+            }
+            
+            // Colocar bloco com a tecla Enter
+            function placeBlock() {
+                if (!controls.isLocked) return;
+                
+                raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const intersects = raycaster.intersectObjects(objects);
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+                    // Calcular posição do novo bloco
+                    const normal = intersect.face.normal;
+                    const position = intersect.object.userData.position;
+                    const newX = position.x + Math.round(normal.x);
+                    const newY = position.y + Math.round(normal.y);
+                    const newZ = position.z + Math.round(normal.z);
+                    
+                    // Verificar se a posição está dentro dos limites e vazia
+                    if (newX >= 0 && newX < worldSize && 
+                        newY >= 0 && newY < worldHeight && 
+                        newZ >= 0 && newZ < worldSize && 
+                        !world[newX][newY][newZ]) {
+                        
+                        world[newX][newY][newZ] = blockType;
+                        generateWorldGeometry();
+                    }
+                }
+            }
+            
+            // Manipular teclas liberadas
+            function onKeyUp(event) {
+                switch(event.code) {
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        moveForward = false;
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        moveLeft = false;
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        moveBackward = false;
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        moveRight = false;
+                        break;
+                }
+            }
+
+            // Gerar geometria do mundo baseado na matriz de blocos
+            function generateWorldGeometry() {
+                // Limpar objetos existentes
+                objects.forEach(obj => scene.remove(obj));
+                objects = [];
+
+                // Materiais para diferentes tipos de blocos
+                const materials = {
+                    'terra': new THREE.MeshLambertMaterial({ color: 0x8B4513 }),
+                    'pedra': new THREE.MeshLambertMaterial({ color: 0x808080 }),
+                    'grama': new THREE.MeshLambertMaterial({ color: 0x228B22 }),
+                    'agua': new THREE.MeshLambertMaterial({ color: 0x1E90FF, transparent: true, opacity: 0.7 }),
+                    'madeira': new THREE.MeshLambertMaterial({ color: 0x964B00 }),
+                    'folha': new THREE.MeshLambertMaterial({ color: 0x007700 })
+                };
+
+                // Criar geometria para cada bloco no mundo
+                for (let x = 0; x < worldSize; x++) {
+                    for (let y = 0; y < worldHeight; y++) {
+                        for (let z = 0; z < worldSize; z++) {
+                            const block = world[x][y][z];
+                            if (block) {
+                                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                                const mesh = new THREE.Mesh(geometry, materials[block]);
+                                
+                                mesh.position.set(x, y, z);
+                                mesh.userData = { type: block, position: { x, y, z } };
+                                
+                                scene.add(mesh);
+                                objects.push(mesh);
+                            }
+                        }
+                    }
+                }
+
+                // Adicionar chão simples
+                const floorGeometry = new THREE.PlaneGeometry(100, 100);
+                const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x00AA00 });
+                const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.y = -0.5;
+                scene.add(floor);
+            }
+
+            // Manipular clique do mouse (adicionar/remover blocos)
+            function onMouseClick(event) {
+                if (!controls.isLocked) return;
+
+                raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const intersects = raycaster.intersectObjects(objects);
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+                    
+                    if (event.button === 0) { // Clique esquerdo - remover bloco
+                        const position = intersect.object.userData.position;
+                        world[position.x][position.y][position.z] = null;
+                        generateWorldGeometry();
+                    } else if (event.button === 2) { // Clique direito - adicionar bloco
+                        // Calcular posição do novo bloco
+                        const normal = intersect.face.normal;
+                        const position = intersect.object.userData.position;
+                        const newX = position.x + Math.round(normal.x);
+                        const newY = position.y + Math.round(normal.y);
+                        const newZ = position.z + Math.round(normal.z);
+                        
+                        // Verificar se a posição está dentro dos limites e vazia
+                        if (newX >= 0 && newX < worldSize && 
+                            newY >= 0 && newY < worldHeight && 
+                            newZ >= 0 && newZ < worldSize && 
+                            !world[newX][newY][newZ]) {
+                            
+                            world[newX][newY][newZ] = blockType;
+                            generateWorldGeometry();
+                        }
+                    }
+                }
+            }
+
+            // Verificar performance
+            function checkPerformance() {
+                frameCount++;
+                const now = performance.now();
+                
+                if (now - lastFpsUpdate >= 1000) {
+                    const fps = frameCount;
+                    frameCount = 0;
+                    lastFpsUpdate = now;
+                    
+                    if (fps < 25 && !lowPerformanceMode) {
+                        lowPerformanceMode = true;
+                        document.getElementById('performance-warning').style.display = 'block';
+                        setTimeout(() => {
+                            document.getElementById('performance-warning').style.display = 'none';
+                        }, 3000);
+                        
+                        // Reduzir ainda mais a qualidade
+                        scene.fog = null;
+                        const blocks = document.querySelectorAll('.block-type');
+                        for (let i = 3; i < blocks.length; i++) {
+                            blocks[i].style.display = 'none';
+                        }
+                    }
+                }
+            }
+
+            // Atualizar a cada frame
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                if (controls.isLocked) {
+                    const time = performance.now();
+                    const delta = (time - prevTime) / 1000;
+                    
+                    // Ajustar velocidade de movimento
+                    velocity.x -= velocity.x * 8.0 * delta;
+                    velocity.z -= velocity.z * 8.0 * delta;
+                    velocity.y -= 9.8 * 80.0 * delta; // gravidade reduzida
+                    
+                    direction.z = Number(moveForward) - Number(moveBackward);
+                    direction.x = Number(moveRight) - Number(moveLeft);
+                    direction.normalize();
+                    
+                    if (moveForward || moveBackward) velocity.z -= direction.z * 300.0 * delta;
+                    if (moveLeft || moveRight) velocity.x -= direction.x * 300.0 * delta;
+                    
+                    controls.moveRight(-velocity.x * delta);
+                    controls.moveForward(-velocity.z * delta);
+                    
+                    controls.getObject().position.y += (velocity.y * delta);
+                    
+                    // Verificar colisão com o chão
+                    if (controls.getObject().position.y < 5) {
+                        velocity.y = 0;
+                        controls.getObject().position.y = 5;
+                        canJump = true;
+                    }
+                    
+                    prevTime = time;
+                    
+                    // Verificar performance
+                    checkPerformance();
+                }
+                
+                renderer.render(scene, camera);
+            }
+
+            // Manipular redimensionamento da janela
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            // Iniciar o jogo
+            init();
+
+            // Prevenir menu de contexto no clique direito
+            document.addEventListener('contextmenu', e => e.preventDefault());
+        }
+    </script>
+</body>
+</html>
