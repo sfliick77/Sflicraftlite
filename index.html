@@ -164,6 +164,83 @@
             z-index: 10;
             display: none;
         }
+        
+        /* Menu de Configurações */
+        #settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 16px;
+        }
+        
+        #settings-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 20;
+            width: 300px;
+            display: none;
+        }
+        
+        #settings-menu h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        
+        .setting {
+            margin-bottom: 15px;
+        }
+        
+        .setting label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .setting input[type="range"] {
+            width: 100%;
+        }
+        
+        .value-display {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+        }
+        
+        #settings-close {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 15;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -184,7 +261,7 @@
             <div class="loading-bar" id="loading-bar"></div>
         </div>
         
-        <p class="loading-tip">Tecla Enter também coloca blocos | Use WASD para mover e Espaço para pular</p>
+        <p class="loading-tip">Tecla M para abrir configurações | Pressione ESC para liberar o mouse</p>
     </div>
 
     <!-- Jogo -->
@@ -205,12 +282,38 @@
             <p>Clique Esquerdo: Remover bloco</p>
             <p>Clique Direito ou Enter: Colocar bloco</p>
             <p>Espaço: Pular</p>
-            <p>Escape: Libertar mouse</p>
+            <p>ESC: Libertar mouse</p>
             <p>Teclas 1-6: Selecionar bloco</p>
+            <p>M: Configurações</p>
         </div>
         <div class="performance-warning" id="performance-warning">
             Desempenho baixo! Reduzindo qualidade...
         </div>
+        
+        <button id="settings-btn">Configurações (M)</button>
+    </div>
+
+    <!-- Menu de Configurações -->
+    <div class="overlay" id="settings-overlay"></div>
+    <div id="settings-menu">
+        <h2>Configurações</h2>
+        
+        <div class="setting">
+            <label for="mouse-sensitivity">Sensibilidade do Mouse: <span id="sensitivity-value" class="value-display">0.5</span></label>
+            <input type="range" id="mouse-sensitivity" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+        
+        <div class="setting">
+            <label for="movement-speed">Velocidade de Movimento: <span id="speed-value" class="value-display">1.0</span></label>
+            <input type="range" id="movement-speed" min="0.5" max="3" step="0.1" value="1.0">
+        </div>
+        
+        <div class="setting">
+            <label for="fov">Campo de Visão: <span id="fov-value" class="value-display">75</span></label>
+            <input type="range" id="fov" min="60" max="110" step="5" value="75">
+        </div>
+        
+        <button id="settings-close">Aplicar e Fechar</button>
     </div>
 
     <!-- Three.js e bibliotecas -->
@@ -218,6 +321,11 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.min.js"></script>
 
     <script>
+        // Variáveis de configuração
+        let mouseSensitivity = 0.5;
+        let movementSpeed = 1.0;
+        let fov = 75;
+        
         // Variáveis de performance
         let lowPerformanceMode = false;
         let frameCount = 0;
@@ -341,7 +449,8 @@
                 scene.background = new THREE.Color(0x87CEEB);
                 scene.fog = new THREE.Fog(0x87CEEB, 15, 30); // Menos nevoeiro para performance
 
-                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50); // Menor distância de renderização
+                camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 50);
+                camera.position.set(worldSize/2, 8, worldSize/2);
 
                 renderer = new THREE.WebGLRenderer({ 
                     antialias: false, // Desativar antialiasing para performance
@@ -362,6 +471,9 @@
                 // Configurar controles de ponteiro
                 controls = new THREE.PointerLockControls(camera, document.body);
                 
+                // Aplicar sensibilidade do mouse
+                controls.pointerSpeed = mouseSensitivity;
+                
                 // Adicionar evento de clique para bloquear o ponteiro
                 document.addEventListener('click', () => {
                     if (!controls.isLocked) {
@@ -371,10 +483,12 @@
 
                 controls.addEventListener('lock', () => {
                     document.getElementById('instructions').style.display = 'none';
+                    document.getElementById('settings-btn').style.display = 'none';
                 });
 
                 controls.addEventListener('unlock', () => {
                     document.getElementById('instructions').style.display = 'block';
+                    document.getElementById('settings-btn').style.display = 'block';
                 });
 
                 // Adicionar controles de teclado
@@ -392,6 +506,32 @@
                         blockType = el.getAttribute('data-type');
                     });
                 });
+                
+                // Configurar menu de configurações
+                document.getElementById('settings-btn').addEventListener('click', openSettings);
+                document.getElementById('settings-close').addEventListener('click', closeSettings);
+                document.getElementById('settings-overlay').addEventListener('click', closeSettings);
+                
+                // Configurar sliders
+                const sensitivitySlider = document.getElementById('mouse-sensitivity');
+                const speedSlider = document.getElementById('movement-speed');
+                const fovSlider = document.getElementById('fov');
+                
+                sensitivitySlider.value = mouseSensitivity;
+                speedSlider.value = movementSpeed;
+                fovSlider.value = fov;
+                
+                sensitivitySlider.addEventListener('input', function() {
+                    document.getElementById('sensitivity-value').textContent = this.value;
+                });
+                
+                speedSlider.addEventListener('input', function() {
+                    document.getElementById('speed-value').textContent = this.value;
+                });
+                
+                fovSlider.addEventListener('input', function() {
+                    document.getElementById('fov-value').textContent = this.value;
+                });
 
                 // Configurar redimensionamento da janela
                 window.addEventListener('resize', onWindowResize);
@@ -402,12 +542,41 @@
                 
                 // Adicionar controles à cena
                 scene.add(controls.getObject());
-                
-                // Posicionar a câmera
-                controls.getObject().position.set(worldSize/2, 8, worldSize/2);
 
                 // Iniciar animação
                 animate();
+            }
+            
+            // Abrir menu de configurações
+            function openSettings() {
+                if (controls.isLocked) {
+                    controls.unlock();
+                }
+                
+                document.getElementById('settings-menu').style.display = 'block';
+                document.getElementById('settings-overlay').style.display = 'block';
+            }
+            
+            // Fechar menu de configurações
+            function closeSettings() {
+                // Aplicar novas configurações
+                mouseSensitivity = parseFloat(document.getElementById('mouse-sensitivity').value);
+                movementSpeed = parseFloat(document.getElementById('movement-speed').value);
+                fov = parseInt(document.getElementById('fov').value);
+                
+                // Aplicar sensibilidade
+                if (controls) {
+                    controls.pointerSpeed = mouseSensitivity;
+                }
+                
+                // Aplicar FOV
+                if (camera) {
+                    camera.fov = fov;
+                    camera.updateProjectionMatrix();
+                }
+                
+                document.getElementById('settings-menu').style.display = 'none';
+                document.getElementById('settings-overlay').style.display = 'none';
             }
             
             // Manipular teclas pressionadas
@@ -430,7 +599,7 @@
                         moveRight = true;
                         break;
                     case 'Space':
-                        if (canJump === true) velocity.y += 300; // Pulo menos alto para controle mais fácil
+                        if (canJump === true) velocity.y += 300;
                         canJump = false;
                         break;
                     case 'Enter':
@@ -453,6 +622,9 @@
                         break;
                     case 'Digit6':
                         selectBlock(5);
+                        break;
+                    case 'KeyM':
+                        openSettings();
                         break;
                 }
             }
@@ -633,7 +805,7 @@
                     const time = performance.now();
                     const delta = (time - prevTime) / 1000;
                     
-                    // Ajustar velocidade de movimento
+                    // Ajustar velocidade de movimento com base na configuração
                     velocity.x -= velocity.x * 8.0 * delta;
                     velocity.z -= velocity.z * 8.0 * delta;
                     velocity.y -= 9.8 * 80.0 * delta; // gravidade reduzida
@@ -642,8 +814,11 @@
                     direction.x = Number(moveRight) - Number(moveLeft);
                     direction.normalize();
                     
-                    if (moveForward || moveBackward) velocity.z -= direction.z * 300.0 * delta;
-                    if (moveLeft || moveRight) velocity.x -= direction.x * 300.0 * delta;
+                    // Aplicar velocidade configurada
+                    const speed = 300.0 * movementSpeed;
+                    
+                    if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+                    if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
                     
                     controls.moveRight(-velocity.x * delta);
                     controls.moveForward(-velocity.z * delta);
@@ -681,4 +856,4 @@
         }
     </script>
 </body>
-</html>
+    </html>
